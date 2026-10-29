@@ -36,7 +36,10 @@ mini-dummy/
 │   └── main.cpp           USB-CDC listener and command parser
 ├── software/
 │   ├── controller.py      Pico discovery, one-shot moves, and interactive REPL
-│   └── requirements.txt   Python host dependency
+│   ├── requirements.txt   Python serial-controller dependency
+│   └── vision/
+│       ├── tracker.py     HSV color tracker with preview and JSON output
+│       └── requirements.txt
 └── README.md
 ```
 
@@ -190,6 +193,48 @@ mini-dummy> quit
 ```
 
 On Linux, serial access may require membership in the `dialout` group. On Windows, pass a port such as `COM5` with `--port`.
+
+## Use the vision tracker
+
+The vision module tracks the largest object inside a configurable HSV color range. It reports the target centroid, normalized horizontal/vertical offsets from the image center, contour area, radius, and a size-based confidence value. The default range targets saturated green objects.
+
+Install its dependencies separately so the serial controller stays lightweight:
+
+```bash
+python -m pip install -r software/vision/requirements.txt
+```
+
+Start the live camera preview:
+
+```bash
+python software/vision/tracker.py --source 0 --mirror
+```
+
+Tune the HSV range for a different target color. OpenCV hue values use a `0..179` scale:
+
+```bash
+python software/vision/tracker.py \
+  --lower 20 120 100 \
+  --upper 35 255 255 \
+  --min-area 800
+```
+
+For a perception or control pipeline, disable the GUI and emit newline-delimited JSON:
+
+```bash
+python software/vision/tracker.py \
+  --headless \
+  --json \
+  --print-every 1
+```
+
+Example detection:
+
+```json
+{"frame":42,"timestamp_s":1793232000.0,"detected":true,"center_x_px":701,"center_y_px":338,"offset_x_norm":0.09531,"offset_y_norm":0.06111,"area_px":4280.5,"radius_px":39.2,"confidence":0.214}
+```
+
+The tracker intentionally does **not** send motion commands. Camera pixels must be calibrated into the robot coordinate frame, and any closed-loop controller should add workspace, velocity, acceleration, and collision limits before forwarding targets to the arm.
 
 ## Adapting the kinematics
 
